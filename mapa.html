@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMapBrasil - Mapa de Biomas e Desmatamento</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2d5a27, #4a7c59);
+      color: white;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 300;
+    }
+
+    .back-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px 15px;
+      border-radius: 25px;
+      text-decoration: none;
+      color: #2d5a27;
+      font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+      background: white;
+      transform: translateY(-2px);
+    }
+
+    .container {
+      display: flex;
+      height: calc(100vh - 70px);
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+
+    .sidebar {
+      width: 350px;
+      background: #f8f9fa;
+      border-left: 3px solid #2d5a27;
+      overflow-y: auto;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    }
+
+    .info-panel {
+      padding: 20px;
+    }
+
+    .timeline {
+      margin-bottom: 30px;
+    }
+
+    .timeline h3 {
+      color: #2d5a27;
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 10px;
+    }
+
+    .timeline-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 15px;
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 25px;
+      bottom: -15px;
+      width: 2px;
+      background: #e9ecef;
+    }
+
+    .timeline-item:last-child::before {
+      display: none;
+    }
+
+    .year-dot {
+      width: 16px;
+      height: 16px;
+      background: #28a745;
+      border-radius: 50%;
+      margin-right: 15px;
+      margin-top: 5px;
+      flex-shrink: 0;
+      border: 3px solid white;
+      box-shadow: 0 0 0 2px #28a745;
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .year {
+      font-weight: bold;
+      font-size: 16px;
+      color: #2d5a27;
+      margin-bottom: 5px;
+    }
+
+    .description {
+      font-size: 14px;
+      color: #6c757d;
+      line-height: 1.4;
+    }
+
+    .biomes-section {
+      margin-bottom: 30px;
+    }
+
+    .biomes-section h3 {
+      color: #2d5a27;
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 10px;
+    }
+
+    .biome-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 8px;
+      transition: background-color 0.3s ease;
+      cursor: pointer;
+    }
+
+    .biome-item:hover {
+      background-color: #e9ecef;
+    }
+
+    .biome-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      margin-right: 10px;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+    }
+
+    .biome-info {
+      flex: 1;
+    }
+
+    .biome-name {
+      font-weight: bold;
+      font-size: 14px;
+      color: #2d5a27;
+    }
+
+    .biome-percentage {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px 40px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 9999;
+      font-size: 16px;
+      color: #2d5a27;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.95);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      max-width: 200px;
+    }
+
+    .legend h4 {
+      margin: 0 0 10px 0;
+      color: #2d5a27;
+      font-size: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      margin-right: 8px;
+      border-radius: 3px;
+    }
+
+    .state-label {
+      background: none !important;
+      border: none !important;
+      font-weight: bold;
+      color: #2d5a27;
+      text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+    }
+  </style>
+</head>
+<body>
+  <a href="p.html" class="back-btn">← Voltar</a>
+  
+  <div class="header">
+    <h1>EcoMapBrasil - Monitoramento de Biomas e Desmatamento</h1>
+  </div>
+
+  <div id="loading">Carregando dados do mapa...</div>
+
+  <div class="container">
+    <div id="map"></div>
+    
+    <div class="sidebar">
+      <div class="info-panel">
+        <div class="timeline">
+          <h3>📊 Linha do Tempo do Desmatamento</h3>
+          
+          <div class="timeline-item">
+            <div class="year-dot"></div>
+            <div class="timeline-content">
+              <div class="year">2023</div>
+              <div class="description">Recorde de desmatamento na Amazônia: 11.568 km²</div>
+            </div>
+          </div>
+          
+          <div class="timeline-item">
+            <div class="year-dot"></div>
+            <div class="timeline-content">
+              <div class="year">2020</div>
+              <div class="description">Cerrado perde 7.340 km² de vegetação nativa</div>
+            </div>
+          </div>
+          
+          <div class="timeline-item">
+            <div class="year-dot"></div>
+            <div class="timeline-content">
+              <div class="year">2018</div>
+              <div class="description">Mata Atlântica tem apenas 12.4% de sua cobertura original</div>
+            </div>
+          </div>
+          
+          <div class="timeline-item">
+            <div class="year-dot"></div>
+            <div class="timeline-content">
+              <div class="year">2015</div>
+              <div class="description">Pantanal perde 12% de sua área para queimadas</div>
+            </div>
+          </div>
+          
+          <div class="timeline-item">
+            <div class="year-dot"></div>
+            <div class="timeline-content">
+              <div class="year">2010</div>
+              <div class="description">Caatinga tem 45% de sua área original desmatada</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="biomes-section">
+          <h3>🌿 Biomas Brasileiros</h3>
+          
+          <div class="biome-item" data-biome="amazonia">
+            <div class="biome-color" style="background-color: #0d5016;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Amazônia</div>
+              <div class="biome-percentage">78% da área desmatada</div>
+            </div>
+          </div>
+          
+          <div class="biome-item" data-biome="cerrado">
+            <div class="biome-color" style="background-color: #d4a017;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Cerrado</div>
+              <div class="biome-percentage">45% da área desmatada</div>
+            </div>
+          </div>
+          
+          <div class="biome-item" data-biome="caatinga">
+            <div class="biome-color" style="background-color: #ff6b35;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Caatinga</div>
+              <div class="biome-percentage">15% da área desmatada</div>
+            </div>
+          </div>
+          
+          <div class="biome-item" data-biome="mata-atlantica">
+            <div class="biome-color" style="background-color: #4169e1;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Mata Atlântica</div>
+              <div class="biome-percentage">32% da área desmatada</div>
+            </div>
+          </div>
+          
+          <div class="biome-item" data-biome="pantanal">
+            <div class="biome-color" style="background-color: #8b4513;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Pantanal</div>
+              <div class="biome-percentage">12% da área desmatada</div>
+            </div>
+          </div>
+          
+          <div class="biome-item" data-biome="pampa">
+            <div class="biome-color" style="background-color: #32cd32;"></div>
+            <div class="biome-info">
+              <div class="biome-name">Pampa</div>
+              <div class="biome-percentage">25% da área desmatada</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h4>Legenda</h4>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: red;"></div>
+      <span>Áreas Afetadas</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: blue;"></div>
+      <span>Limites Estaduais</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Inicializar o mapa
+    const map = L.map('map', {
+      center: [-14, -52],
+      zoom: 4,
+      zoomControl: true
+    });
+
+    // Adicionar camada base 
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+      maxZoom: 18
+    }).addTo(map);
+
+    // Adicionar camada de referência 
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri',
+      maxZoom: 18
+    }).addTo(map);
+
+    // Definir cores para cada bioma (mais discretas)
+    const biomeColors = {
+      'Amazônia': '#0d5016',
+      'Cerrado': '#d4a017',
+      'Caatinga': '#ff6b35',
+      'Mata Atlântica': '#4169e1',
+      'Pantanal': '#8b4513',
+      'Pampa': '#32cd32'
+    };
+
+    // Dados dos biomas brasileiros com coordenadas mais precisas
+    const biomesData = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Amazônia",
+            "desmatamento": "78%",
+            "area_km2": 5500000,
+            "descricao": "Maior floresta tropical do mundo"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-73.98, 5.27],
+              [-60.11, 5.27],
+              [-49.95, 2.82],
+              [-44.30, -2.33],
+              [-48.63, -16.34],
+              [-57.30, -18.04],
+              [-67.81, -11.87],
+              [-70.09, -9.19],
+              [-73.98, -7.36],
+              [-73.98, 5.27]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Cerrado",
+            "desmatamento": "45%",
+            "area_km2": 2036448,
+            "descricao": "Savana tropical com grande biodiversidade"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-57.30, -18.04],
+              [-48.63, -16.34],
+              [-44.30, -2.33],
+              [-42.54, -2.33],
+              [-35.24, -14.24],
+              [-35.24, -20.30],
+              [-46.63, -24.53],
+              [-52.43, -24.53],
+              [-57.30, -18.04]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Caatinga",
+            "desmatamento": "15%",
+            "area_km2": 844453,
+            "descricao": "Vegetação seca adaptada ao semiárido"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-42.54, -2.33],
+              [-35.24, -2.33],
+              [-34.80, -17.34],
+              [-42.54, -17.34],
+              [-42.54, -2.33]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Mata Atlântica",
+            "desmatamento": "32%",
+            "area_km2": 1110182,
+            "descricao": "Floresta costeira altamente ameaçada"
+          },
+          "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [
+              [[
+                [-35.00, -5.50],
+                [-34.80, -5.50],
+                [-34.80, -17.50],
+                [-35.00, -17.50],
+                [-35.00, -5.50]
+              ]],
+              [[
+                [-48.50, -19.00],
+                [-40.00, -19.00],
+                [-40.00, -33.75],
+                [-51.00, -33.75],
+                [-51.00, -23.00],
+                [-48.50, -19.00]
+              ]],
+              [[
+                [-38.50, -12.50],
+                [-34.80, -12.50],
+                [-34.80, -18.00],
+                [-38.50, -18.00],
+                [-38.50, -12.50]
+              ]]
+            ]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Pantanal",
+            "desmatamento": "12%",
+            "area_km2": 150355,
+            "descricao": "Maior planície alagada do mundo"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-59.18, -14.24],
+              [-55.67, -14.24],
+              [-55.67, -22.27],
+              [-59.18, -22.27],
+              [-59.18, -14.24]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "name": "Pampa",
+            "desmatamento": "25%",
+            "area_km2": 176496,
+            "descricao": "Campos nativos do Sul do Brasil"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-57.65, -28.18],
+              [-49.70, -28.18],
+              [-49.70, -33.75],
+              [-57.65, -33.75],
+              [-57.65, -28.18]
+            ]]
+          }
+        }
+      ]
+    };
+
+    // Variáveis para armazenar as camadas
+    let biomesLayer = null;
+    let affectedAreasLayer = null;
+    let statesLayer = null;
+
+    // Função para estilizar biomas (estilo mais discreto e uniforme)
+    function styleBiome(feature) {
+      return {
+        fillColor: biomeColors[feature.properties.name] || '#666666',
+        weight: 1,
+        opacity: 0,
+        color: '#333333',
+        fillOpacity: 0
+      };
+    }
+
+    // Função para adicionar eventos aos biomas (sem hover highlighting)
+    function onEachBiome(feature, layer) {
+      // Apenas clique para zoom, sem efeitos de hover
+      layer.on({
+        click: function(e) {
+          map.fitBounds(e.target.getBounds());
+        }
+      });
+      
+      // Adicionar popup com informações
+      const popupContent = `
+        <div style="font-family: Arial, sans-serif; min-width: 200px;">
+          <h3 style="margin: 0 0 10px 0; color: ${biomeColors[feature.properties.name]};">
+            🌿 ${feature.properties.name}
+          </h3>
+          <p><strong>📏 Área Total:</strong> ${feature.properties.area_km2.toLocaleString()} km²</p>
+          <p><strong>🚨 Desmatamento:</strong> ${feature.properties.desmatamento}</p>
+          <p><strong>ℹ️ Descrição:</strong> ${feature.properties.descricao}</p>
+        </div>
+      `;
+      layer.bindPopup(popupContent);
+    }
+
+    // Adicionar biomas ao mapa
+    biomesLayer = L.geoJSON(biomesData, {
+      style: styleBiome,
+      onEachFeature: onEachBiome
+    }).addTo(map);
+
+    // Carregar dados de áreas afetadas
+    fetch('meuarquivo4.json')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Arquivo meuarquivo4.json não encontrado');
+        }
+        return res.json();
+      })
+      .then(data => {
+        affectedAreasLayer = L.geoJSON(data, {
+          style: { 
+            color: 'red', 
+            weight: 2,
+            fillColor: 'red',
+            fillOpacity: 0.5
+          }
+        }).addTo(map);
+      })
+      .catch(error => {
+        console.log('Não foi possível carregar áreas afetadas:', error);
+      });
+
+    // Carregar dados dos estados
+    fetch('estados.json')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Arquivo estados.json não encontrado');
+        }
+        return res.json();
+      })
+      .then(data => {
+        statesLayer = L.geoJSON(data, {
+          style: { 
+            color: 'blue', 
+            weight: 1, 
+            fillOpacity: 0 
+          },
+          onEachFeature: function (feature, layer) {
+            if (feature.properties.name) {
+              layer.bindTooltip(feature.properties.name, {
+                permanent: true,
+                direction: 'center',
+                className: 'state-label'
+              });
+            }
+          }
+        }).addTo(map);
+      })
+      .catch(error => {
+        console.log('Não foi possível carregar estados:', error);
+      });
+
+    // Adicionar interatividade aos itens da sidebar
+    document.querySelectorAll('.biome-item').forEach(item => {
+      item.addEventListener('click', function() {
+        const biomeName = this.querySelector('.biome-name').textContent;
+        
+        // Encontrar e destacar o bioma no mapa
+        if (biomesLayer) {
+          biomesLayer.eachLayer(function(layer) {
+            if (layer.feature.properties.name === biomeName) {
+              map.fitBounds(layer.getBounds());
+              layer.openPopup();
+            }
+          });
+        }
+      });
+    });
+
+    // Remover loading quando o mapa estiver pronto
+    map.whenReady(function() {
+      setTimeout(() => {
+        document.getElementById('loading').style.display = 'none';
+      }, 1000);
+    });
+
+    // Controle de camadas
+    const overlays = {};
+    if (biomesLayer) overlays["Biomas"] = biomesLayer;
+    if (affectedAreasLayer) overlays["Áreas Afetadas"] = affectedAreasLayer;
+    if (statesLayer) overlays["Estados"] = statesLayer;
+
+    L.control.layers(null, overlays).addTo(map);
+
+    // Adicionar escala
+    L.control.scale().addTo(map);
+  </script>
+</body>
+</html>
